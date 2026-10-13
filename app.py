@@ -101,7 +101,7 @@ body{background:#000;color:#fff;font-family:Arial;padding:10px}
 <b>Market Moving:</b><br>
 🪙 {{gold}}<br>
 ₿ {{btc}}<br>
-<small>SL 200 | TP 400 | Auto Closes Until 24H</small>
+<small>SL 300 | TP 600 | Auto Closes Until 24H</small>
 </div>
 
 <a href="/deposit"><button class="btn gold">💰 DEPOSIT - Via My IB Link</button></a>
