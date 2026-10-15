@@ -1,172 +1,65 @@
 
-//+------------------------------------------------------------------+
-//|  BTC/Gold Hunter - Build Your Future - PURE CODE                 |
-//|  24Hrs Demand/Supply Bot - Buy Demand, Sell Supply               |
-//|  SL 30 pips, TP 60 pips, Auto Lot, Buy/Sell Day Detector         |
-//+------------------------------------------------------------------+
-#property copyright "Build Your Future - Hunter"
-#property version   "1.00"
-#property strict
+from flask import Flask, render_template_string
 
-#include <Trade/Trade.mqh>
-CTrade trade;
+app = Flask(__name__)
 
-input int Inp_StopLoss = 30;
-input int Inp_TakeProfit = 60;
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>BTC Gold Hunter - Build Your Future</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: Arial; background: #f5f5f5; padding: 15px; text-align: center; }
+.title { color: #0066ff; font-size: 32px; font-weight: bold; }
+.status { color: green; font-size: 22px; font-weight: bold; margin: 10px; }
+.btns { display: flex; justify-content: center; gap: 10px; margin: 15px; }
+.btn { padding: 15px 25px; border-radius: 10px; font-size: 18px; font-weight: bold; border: none; cursor: pointer; }
+.balance { background: #d0e1ff; color: #001a66; }
+.deposit { background: #ffcc00; color: #000; }
+.graph-box { background: white; border-radius: 15px; padding: 15px; margin-top: 15px; text-align: left; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.supply { background: #ffcccc; padding: 8px; border-left: 5px solid red; }
+.demand { background: #ccffcc; padding: 8px; border-left: 5px solid green; }
+a { text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="title">Build your future</div>
+<div class="status">The bot is buying - BUY DAY</div>
 
-//--- Global
-datetime lastTradeDay = 0;
-bool isBuyDay = true;
+<div class="btns">
+<button class="btn balance">Balance: $20.00</button>
+<a href="https://one.exness.link/a/296279963" target="_blank">
+<button class="btn deposit">Deposit -> Exness</button>
+</a>
+</div>
 
-//+------------------------------------------------------------------+
-//| Lot Size Table - As Per Your Paper                               |
-//+------------------------------------------------------------------+
-double GetLotSize(double balance)
-{
-   if(balance >= 10 && balance <= 30) return 0.01;
-   if(balance >= 31 && balance <= 40) return 0.02;
-   if(balance >= 41 && balance <= 50) return 0.03;
-   if(balance >= 51 && balance <= 60) return 0.04;
-   if(balance >= 61 && balance <= 100) return 0.04;
-   if(balance >= 101 && balance <= 200) return 0.05;
-   if(balance >= 201 && balance <= 499) return 0.06;
-   if(balance >= 500 && balance <= 999) return 0.10;
-   if(balance >= 1000 && balance <= 2999) return 0.20;
-   if(balance >= 3000 && balance <= 9999) return 0.40;
-   if(balance >= 10000 && balance <= 49999) return 0.50;
-   if(balance >= 50000 && balance <= 99999) return 1.50;
-   if(balance >= 100000 && balance <= 999999) return 3.00;
-   if(balance >= 1000000) return 10.0;
-   return 0.01;
-}
+<div class="graph-box">
+<h3>Market Moving + Entry Graph:</h3>
+<div class="supply">Supply Zone -> SELL entry (Top) - Bot will SELL here</div>
+<p style="text-align:center;">📈 Chart: BTC/USD M5 Live - Candlesticks moving...</p>
+<p>Entry: <b>BOT ACTIVE -> BUY</b> at Demand Zone</p>
+<div class="demand">Demand Zone -> BUY entry (Bottom) - Bot will BUY here</div>
+<br>
+<p><b>Graph showing where the bot will sell or buy and showing the entry</b></p>
+<hr>
+<p>Lot Table: $10-30 = 0.01 | $31-40 = 0.02 ... $1M = 10.0</p>
+<p>SL 30 pips | TP 60 pips | NFP Detector | 24Hrs Auto - Phone OFF Works</p>
+<p>Exness Standard #296279963</p>
+<br>
+<a href="https://github.com" target="_blank">
+<button style="padding:12px; background:#000; color:#fff; border-radius:8px; width:100%;">Download Bot .mq5 for MT5 VPS</button>
+</a>
+</div>
 
-//+------------------------------------------------------------------+
-//| Detect Buy Day or Sell Day                                       |
-//+------------------------------------------------------------------+
-bool DetectBuyDay()
-{
-   double maDaily = iMA(_Symbol, PERIOD_D1, 50, 0, MODE_EMA, PRICE_CLOSE);
-   double price = iClose(_Symbol, PERIOD_D1, 1);
-   if(price > maDaily) return true;
-   return false;
-}
+<p style="color:gray; font-size:12px;">BTC Gold Hunter - Trades Gold + BTC 24Hrs | Buys whole day / Sells whole day</p>
+</body>
+</html>
+"""
 
-//+------------------------------------------------------------------+
-//| NFP Confirmation Filter                                          |
-//+------------------------------------------------------------------+
-bool NFP_Confirmation()
-{
-   MqlDateTime dt;
-   TimeToStruct(TimeCurrent(), dt);
-   if(dt.day_of_week == 5 && dt.day <= 7 && dt.hour >= 12 && dt.hour <= 16)
-   {
-      return false;
-   }
-   return true;
-}
+@app.route('/')
+def home():
+    return render_template_string(HTML)
 
-//+------------------------------------------------------------------+
-//| Supply / Demand Zones                                            |
-//+------------------------------------------------------------------+
-bool IsDemandZone()
-{
-   double low1 = iLow(_Symbol, PERIOD_H1, 1);
-   double low2 = iLow(_Symbol, PERIOD_H1, 2);
-   double close = iClose(_Symbol, PERIOD_M5, 1);
-   double open = iOpen(_Symbol, PERIOD_M5, 1);
-   if(low1 <= low2 && close > open) return true;
-   return false;
-}
-
-bool IsSupplyZone()
-{
-   double high1 = iHigh(_Symbol, PERIOD_H1, 1);
-   double high2 = iHigh(_Symbol, PERIOD_H1, 2);
-   double close = iClose(_Symbol, PERIOD_M5, 1);
-   double open = iOpen(_Symbol, PERIOD_M5, 1);
-   if(high1 >= high2 && close < open) return true;
-   return false;
-}
-
-//+------------------------------------------------------------------+
-//| Homepage Panel                                                   |
-//+------------------------------------------------------------------+
-void CreateHomepage()
-{
-   ObjectCreate(0, "BG", OBJ_RECTANGLE_LABEL, 0, 0, 0);
-   ObjectSetInteger(0, "BG", OBJPROP_XDISTANCE, 10);
-   ObjectSetInteger(0, "BG", OBJPROP_YDISTANCE, 20);
-   ObjectSetInteger(0, "BG", OBJPROP_XSIZE, 300);
-   ObjectSetInteger(0, "BG", OBJPROP_YSIZE, 400);
-   ObjectSetInteger(0, "BG", OBJPROP_BGCOLOR, clrWhiteSmoke);
-   
-   ObjectCreate(0, "FutureText", OBJ_LABEL, 0, 0, 0);
-   ObjectSetInteger(0, "FutureText", OBJPROP_XDISTANCE, 20);
-   ObjectSetInteger(0, "FutureText", OBJPROP_YDISTANCE, 30);
-   ObjectSetString(0, "FutureText", OBJPROP_TEXT, "Build your future");
-   ObjectSetInteger(0, "FutureText", OBJPROP_FONTSIZE, 12);
-   ObjectSetInteger(0, "FutureText", OBJPROP_COLOR, clrBlue);
-
-   ObjectCreate(0, "BalBtn", OBJ_BUTTON, 0, 0, 0);
-   ObjectSetInteger(0, "BalBtn", OBJPROP_XDISTANCE, 20);
-   ObjectSetInteger(0, "BalBtn", OBJPROP_YDISTANCE, 60);
-   ObjectSetInteger(0, "BalBtn", OBJPROP_XSIZE, 120);
-   ObjectSetInteger(0, "BalBtn", OBJPROP_YSIZE, 25);
-   ObjectSetString(0, "BalBtn", OBJPROP_TEXT, "Balance: $"+DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE),2));
-
-   ObjectCreate(0, "DepBtn", OBJ_BUTTON, 0, 0, 0);
-   ObjectSetInteger(0, "DepBtn", OBJPROP_XDISTANCE, 150);
-   ObjectSetInteger(0, "DepBtn", OBJPROP_YDISTANCE, 60);
-   ObjectSetInteger(0, "DepBtn", OBJPROP_XSIZE, 120);
-   ObjectSetInteger(0, "DepBtn", OBJPROP_YSIZE, 25);
-   ObjectSetString(0, "DepBtn", OBJPROP_TEXT, "Deposit");
-   ObjectSetInteger(0, "DepBtn", OBJPROP_BGCOLOR, clrGold);
-
-   ObjectCreate(0, "MarketBox", OBJ_RECTANGLE_LABEL, 0, 0, 0);
-   ObjectSetInteger(0, "MarketBox", OBJPROP_XDISTANCE, 20);
-   ObjectSetInteger(0, "MarketBox", OBJPROP_YDISTANCE, 100);
-   ObjectSetInteger(0, "MarketBox", OBJPROP_XSIZE, 260);
-   ObjectSetInteger(0, "MarketBox", OBJPROP_YSIZE, 120);
-   ObjectSetInteger(0, "MarketBox", OBJPROP_BGCOLOR, clrWhite);
-}
-
-//+------------------------------------------------------------------+
-int OnInit()
-{
-   CreateHomepage();
-   isBuyDay = DetectBuyDay();
-   return(INIT_SUCCEEDED);
-}
-
-//+------------------------------------------------------------------+
-void OnTick()
-{
-   if(!NFP_Confirmation()) return;
-   
-   if(iTime(_Symbol, PERIOD_D1, 0) != lastTradeDay)
-   {
-      isBuyDay = DetectBuyDay();
-      lastTradeDay = iTime(_Symbol, PERIOD_D1, 0);
-   }
-
-   if(PositionsTotal() == 0)
-   {
-      double balance = AccountInfoDouble(ACCOUNT_BALANCE);
-      double lot = GetLotSize(balance);
-      double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      double sl = 0, tp = 0;
-      
-      if(isBuyDay && IsDemandZone())
-      {
-         sl = price - Inp_StopLoss * 10 * _Point;
-         tp = price + Inp_TakeProfit * 10 * _Point;
-         trade.Buy(lot, _Symbol, 0, sl, tp, "Hunter Buy Demand");
-      }
-      else if(!isBuyDay && IsSupplyZone())
-      {
-         sl = price + Inp_StopLoss * 10 * _Point;
-         tp = price - Inp_TakeProfit * 10 * _Point;
-         trade.Sell(lot, _Symbol, 0, sl, tp, "Hunter Sell Supply");
-      }
-   }
-}
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=10000)
